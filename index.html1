@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>HarshChat - P2P Messenger</title>
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <style>
+    :root {
+      --bg: #0b141a;
+      --header: #202c33;
+      --sent: #005c4b;
+      --received: #202c33;
+      --accent: #00a884;
+      --text: #e9edef;
+      --muted: #8696a0;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      max-width: 500px;
+      margin: 0 auto;
+      border-left: 1px solid #222e35;
+      border-right: 1px solid #222e35;
+    }
+
+    /* TOP BAR */
+    .topbar {
+      background: var(--header);
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+      z-index: 10;
+    }
+    .user-info h2 { font-size: 1.05rem; font-weight: 600; }
+    .status { font-size: 0.75rem; color: var(--accent); margin-top: 2px; }
+    .status.offline { color: var(--muted); }
+
+    /* SETUP SCREEN */
+    #setupScreen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 24px;
+      gap: 16px;
+    }
+    .card {
+      background: var(--header);
+      padding: 20px;
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .card h3 { font-size: 0.95rem; color: var(--accent); }
+    input {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #374248;
+      background: #111b21;
+      color: white;
+      font-size: 0.95rem;
+      outline: none;
+    }
+    .btn {
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      background: var(--accent);
+      color: #0b141a;
+      font-weight: 700;
+      font-size: 0.95rem;
+      cursor: pointer;
+    }
+    .btn:active { opacity: 0.85; }
+    .my-id-box {
+      background: #111b21;
+      padding: 12px;
+      border-radius: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: monospace;
+      font-size: 1rem;
+      border: 1px dashed #374248;
+    }
+    .copy-btn {
+      background: #2a3942;
+      color: var(--text);
+      border: none;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+
+    /* CHAT SCREEN */
+    #chatScreen {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .messages {
+      flex: 1;
+      padding: 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background-image: radial-gradient(#1f2c33 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+    .msg {
+      max-width: 78%;
+      padding: 8px 12px;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      line-height: 1.35;
+      position: relative;
+      word-wrap: break-word;
+    }
+    .msg.sent {
+      align-self: flex-end;
+      background: var(--sent);
+      border-top-right-radius: 2px;
+    }
+    .msg.received {
+      align-self: flex-start;
+      background: var(--received);
+      border-top-left-radius: 2px;
+    }
+    .msg-sender {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #53bdeb;
+      margin-bottom: 2px;
+    }
+    .msg-time {
+      font-size: 0.65rem;
+      color: rgba(255,255,255,0.6);
+      text-align: right;
+      margin-top: 3px;
+    }
+    .input-bar {
+      background: var(--header);
+      padding: 10px 12px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .input-bar input {
+      border-radius: 20px;
+      padding: 10px 16px;
+    }
+    .send-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: none;
+      background: var(--accent);
+      color: #0b141a;
+      font-weight: bold;
+      font-size: 1.1rem;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="user-info">
+      <h2 id="chatTitle">HarshChat</h2>
+      <div class="status offline" id="statusText">Waiting to connect...</div>
+    </div>
+    <button class="copy-btn" id="disconnectBtn" style="display:none;" onclick="location.reload()">Exit</button>
+  </div>
+
+  <!-- STEP 1: CONNECT SCREEN -->
+  <div id="setupScreen">
+    <div class="card">
+      <h3>1. Your Profile & Share Code</h3>
+      <input type="text" id="myName" placeholder="Enter your name (e.g. Harsh)" value="Harsh" />
+      <div class="my-id-box">
+        <span id="myPeerId">Generating ID...</span>
+        <button class="copy-btn" onclick="copyId()">Copy Code</button>
+      </div>
+      <p style="font-size: 0.78rem; color: var(--muted);">Share this code with your friend so they can connect to you.</p>
+    </div>
+
+    <div class="card">
+      <h3>2. Connect to a Friend</h3>
+      <input type="text" id="friendIdInput" placeholder="Paste friend's code here..." />
+      <button class="btn" onclick="connectToFriend()">Start Chatting</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: WHATSAPP CHAT SCREEN -->
+  <div id="chatScreen">
+    <div class="messages" id="messagesBox"></div>
+    <div class="input-bar">
+      <input type="text" id="msgInput" placeholder="Type a message..." onkeypress="if(event.key==='Enter') sendMessage()" />
+      <button class="send-btn" onclick="sendMessage()">&#10148;</button>
+    </div>
+  </div>
+
+  <script>
+    // Generate a short, easy-to-type 5-character room code
+    const shortId = 'hc-' + Math.random().toString(36).substring(2, 7);
+    const peer = new Peer(shortId);
+    let conn = null;
+
+    peer.on('open', (id) => {
+      document.getElementById('myPeerId').textContent = id;
+    });
+
+    // When a friend connects to YOU
+    peer.on('connection', (incomingConn) => {
+      conn = incomingConn;
+      setupConnection();
+    });
+
+    // When YOU connect to a friend
+    function connectToFriend() {
+      const friendId = document.getElementById('friendIdInput').value.trim();
+      if (!friendId) return alert("Enter your friend's code first!");
+      document.getElementById('statusText').textContent = "Connecting...";
+      conn = peer.connect(friendId);
+      setupConnection();
+    }
+
+    function setupConnection() {
+      conn.on('open', () => {
+        document.getElementById('setupScreen').style.display = 'none';
+        document.getElementById('chatScreen').style.display = 'flex';
+        document.getElementById('disconnectBtn').style.display = 'block';
+        document.getElementById('statusText').textContent = "Online • End-to-End P2P";
+        document.getElementById('statusText').classList.remove('offline');
+        
+        // Send your name right away
+        conn.send({ type: 'intro', name: document.getElementById('myName').value || 'Friend' });
+      });
+
+      conn.on('data', (data) => {
+        if (data.type === 'intro') {
+          document.getElementById('chatTitle').textContent = data.name;
+        } else if (data.type === 'msg') {
+          appendMessage(data.text, 'received', data.sender, data.time);
+        }
+      });
+
+      conn.on('close', () => {
+        document.getElementById('statusText').textContent = "Disconnected";
+        document.getElementById('statusText').classList.add('offline');
+      });
+    }
+
+    function sendMessage() {
+      const input = document.getElementById('msgInput');
+      const text = input.value.trim();
+      if (!text || !conn) return;
+
+      const sender = document.getElementById('myName').value || 'Me';
+      const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      conn.send({ type: 'msg', text, sender, time });
+      appendMessage(text, 'sent', sender, time);
+      input.value = '';
+    }
+
+    function appendMessage(text, side, sender, time) {
+      const box = document.getElementById('messagesBox');
+      const div = document.createElement('div');
+      div.className = `msg ${side}`;
+      div.innerHTML = `
+        ${side === 'received' ? `<div class="msg-sender">${sender}</div>` : ''}
+        <div>${escapeHtml(text)}</div>
+        <div class="msg-time">${time}</div>
+      `;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function copyId() {
+      const idText = document.getElementById('myPeerId').textContent;
+      navigator.clipboard.writeText(idText);
+      alert("Copied code: " + idText);
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+    }
+  </script>
+</body>
+</html>
