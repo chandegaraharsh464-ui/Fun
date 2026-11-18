@@ -3,54 +3,182 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>HarshChat - View Once P2P</title>
-  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <title>HarshChat - 1x View</title>
   <style>
-    :root {
-      --bg: #0b141a;
-      --header: #202c33;
-      --sent: #005c4b;
-      --received: #202c33;
-      --accent: #00a884;
-      --burn: #ff4b4b;
-      --text: #e9edef;
-      --muted: #8696a0;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; user-select: none; }
-    body {
-      background: var(--bg);
-      color: var(--text);
-      height: 100dvh;
-      display: flex;
-      flex-direction: column;
-      max-width: 500px;
-      margin: 0 auto;
-      border-left: 1px solid #222e35;
-      border-right: 1px solid #222e35;
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+    body { background: #0b141a; color: #e9edef; height: 100vh; display: flex; flex-direction: column; max-width: 500px; margin: 0 auto; }
+    .topbar { background: #202c33; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; }
+    .topbar h2 { font-size: 1.05rem; }
+    .status { font-size: 0.75rem; color: #00a884; margin-top: 2px; }
+    #setupScreen { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 20px; gap: 16px; }
+    .card { background: #202c33; padding: 18px; border-radius: 12px; display: flex; flex-direction: column; gap: 12px; }
+    .card h3 { font-size: 0.95rem; color: #00a884; }
+    input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #374248; background: #111b21; color: #fff; font-size: 0.95rem; outline: none; }
+    .btn { padding: 12px; border: none; border-radius: 8px; background: #00a884; color: #0b141a; font-weight: 700; font-size: 0.95rem; cursor: pointer; }
+    .id-box { background: #111b21; padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; font-family: monospace; border: 1px dashed #374248; }
+    .copy-btn { background: #2a3942; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; cursor: pointer; }
+    #chatScreen { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+    .banner { background: #182229; color: #8696a0; font-size: 0.75rem; text-align: center; padding: 6px; }
+    .messages { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+    .msg { max-width: 80%; padding: 10px 14px; border-radius: 12px; font-size: 0.92rem; word-wrap: break-word; }
+    .sent { align-self: flex-end; background: #005c4b; }
+    .received { align-self: flex-start; background: #202c33; }
+    .locked { border: 1px dashed #00a884; color: #00a884; font-weight: 600; cursor: pointer; }
+    .revealed { border: 1px solid #ff4b4b; background: #2a181d; }
+    .burned { background: transparent; border: 1px solid #2a3942; color: #8696a0; font-style: italic; font-size: 0.82rem; }
+    .timer { font-size: 0.72rem; color: #ff4b4b; font-weight: bold; margin-top: 5px; }
+    .input-bar { background: #202c33; padding: 10px; display: flex; gap: 8px; }
+    .input-bar input { border-radius: 20px; padding: 10px 16px; }
+    .send-btn { width: 44px; height: 44px; border-radius: 50%; border: none; background: #00a884; color: #0b141a; font-weight: bold; font-size: 1.1rem; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div>
+      <h2 id="chatTitle">HarshChat (1x View)</h2>
+      <div class="status" id="statusText">Ready to connect</div>
+    </div>
+    <button class="copy-btn" id="exitBtn" style="display:none;" onclick="location.reload()">Exit</button>
+  </div>
+
+  <div id="setupScreen">
+    <div class="card">
+      <h3>1. Your Name & Share Code</h3>
+      <input type="text" id="myName" value="Harsh" placeholder="Your name..." />
+      <div class="id-box">
+        <span id="myPeerId">Loading ID...</span>
+        <button class="copy-btn" onclick="copyId()">Copy</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3>2. Connect to Friend</h3>
+      <input type="text" id="friendIdInput" placeholder="Paste friend's code..." />
+      <button class="btn" onclick="connectToFriend()">Start Chat</button>
+    </div>
+  </div>
+
+  <div id="chatScreen">
+    <div class="banner">View-Once Mode: Messages self-destruct 5s after opening.</div>
+    <div class="messages" id="messagesBox"></div>
+    <div class="input-bar">
+      <input type="text" id="msgInput" placeholder="Type 1-time message..." onkeypress="if(event.key==='Enter') sendMessage()" />
+      <button class="send-btn" onclick="sendMessage()">&#10148;</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script>
+    let peer = null;
+    let conn = null;
+
+    window.addEventListener('load', () => {
+      if (typeof Peer === 'undefined') {
+        document.getElementById('myPeerId').textContent = 'Network blocked PeerJS';
+        return;
+      }
+      const shortId = 'hc-' + Math.random().toString(36).substring(2, 7);
+      peer = new Peer(shortId);
+
+      peer.on('open', (id) => {
+        document.getElementById('myPeerId').textContent = id;
+      });
+
+      peer.on('connection', (incoming) => {
+        conn = incoming;
+        setupConnection();
+      });
+
+      peer.on('error', (err) => {
+        document.getElementById('statusText').textContent = 'Error: ' + err.type;
+      });
+    });
+
+    function connectToFriend() {
+      const fid = document.getElementById('friendIdInput').value.trim();
+      if (!fid || !peer) return alert("Enter friend's code first!");
+      document.getElementById('statusText').textContent = 'Connecting...';
+      conn = peer.connect(fid);
+      setupConnection();
     }
 
-    /* TOP BAR */
-    .topbar {
-      background: var(--header);
-      padding: 12px 16px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.4);
-      z-index: 10;
-    }
-    .user-info h2 { font-size: 1.05rem; font-weight: 600; }
-    .status { font-size: 0.75rem; color: var(--accent); margin-top: 2px; }
-    .status.offline { color: var(--muted); }
+    function setupConnection() {
+      conn.on('open', () => {
+        document.getElementById('setupScreen').style.display = 'none';
+        document.getElementById('chatScreen').style.display = 'flex';
+        document.getElementById('exitBtn').style.display = 'block';
+        document.getElementById('statusText').textContent = 'Online • View-Once';
+        conn.send({ type: 'intro', name: document.getElementById('myName').value || 'Friend' });
+      });
 
-    /* SETUP SCREEN */
-    #setupScreen {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      padding: 24px;
-      gap: 16px;
+      conn.on('data', (data) => {
+        if (data.type === 'intro') document.getElementById('chatTitle').textContent = data.name;
+        if (data.type === 'msg') addIncoming(data.id, data.text, data.sender);
+        if (data.type === 'opened') {
+          const el = document.getElementById('sent-' + data.id);
+          if (el) { el.classList.add('burned'); el.innerHTML = '&#128293; Opened & destroyed'; }
+        }
+      });
     }
-    .card {
-      background: var(--header);
+
+    function sendMessage() {
+      const input = document.getElementById('msgInput');
+      const text = input.value.trim();
+      if (!text || !conn) return;
+      const msgId = Date.now().toString(36);
+      const sender = document.getElementById('myName').value || 'Me';
+      conn.send({ type: 'msg', id: msgId, text, sender });
+      input.value = '';
+
+      const box = document.getElementById('messagesBox');
+      const div = document.createElement('div');
+      div.id = 'sent-' + msgId;
+      div.className = 'msg sent';
+      div.innerHTML = '&#128274; Sent 1-time message';
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function addIncoming(msgId, secretText, sender) {
+      const box = document.getElementById('messagesBox');
+      const div = document.createElement('div');
+      div.className = 'msg received locked';
+      div.innerHTML = `&#128065; <b>${esc(sender)}</b>: <u>Tap to view once</u>`;
+
+      let opened = false;
+      div.onclick = () => {
+        if (opened) return;
+        opened = true;
+        if (conn) conn.send({ type: 'opened', id: msgId });
+
+        let sec = 5;
+        div.className = 'msg received revealed';
+        div.innerHTML = `<div>${esc(secretText)}</div><div class="timer" id="t-${msgId}">Destroying in ${sec}s...</div>`;
+
+        const timer = setInterval(() => {
+          sec--;
+          const tEl = document.getElementById('t-' + msgId);
+          if (sec > 0 && tEl) { tEl.textContent = `Destroying in ${sec}s...`; }
+          else {
+            clearInterval(timer);
+            secretText = null;
+            div.className = 'msg received burned';
+            div.innerHTML = '&#128293; Message deleted';
+          }
+        }, 1000);
+      };
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function copyId() {
+      navigator.clipboard.writeText(document.getElementById('myPeerId').textContent);
+      alert('Code copied!');
+    }
+
+    function esc(s) {
+      return s.replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+    }
+  </script>
+</body>
+</html>
