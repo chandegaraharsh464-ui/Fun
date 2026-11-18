@@ -3,76 +3,165 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>HarshChat - Saved Messenger</title>
+  <meta name="theme-color" content="#202c33" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>A Messenger</title>
+  <link id="appIcon" rel="icon" type="image/png" />
+  <link id="appleIcon" rel="apple-touch-icon" />
+  <link id="manifestLink" rel="manifest" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
-    body { background: #0b141a; color: #e9edef; height: 100dvh; display: flex; flex-direction: column; max-width: 500px; margin: 0 auto; border-left: 1px solid #222e35; border-right: 1px solid #222e35; }
+    body { background: #0b141a; color: #e9edef; height: 100dvh; display: flex; flex-direction: column; max-width: 500px; margin: 0 auto; border-left: 1px solid #222e35; border-right: 1px solid #222e35; overflow: hidden; }
     
-    /* TOPBAR */
-    .topbar { background: #202c33; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
-    .topbar h2 { font-size: 1.05rem; }
-    .status { font-size: 0.75rem; color: #00a884; margin-top: 2px; }
-    .status.off { color: #8696a0; }
-    .small-btn { background: #2a3942; color: #e9edef; border: none; padding: 6px 10px; border-radius: 6px; font-size: 0.78rem; cursor: pointer; }
+    /* PIN LOCK OVERLAY */
+    #pinOverlay {
+      position: fixed; inset: 0; background: #0b141a; z-index: 999;
+      display: none; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 24px;
+    }
+    .pin-dots { display: flex; gap: 12px; margin: 8px 0; }
+    .pin-dot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid #00a884; }
+    .pin-dot.filled { background: #00a884; }
+    .keypad { display: grid; grid-template-columns: repeat(3, 68px); gap: 14px; }
+    .key { height: 68px; border-radius: 50%; border: 1px solid #2a3942; background: #202c33; color: #fff; font-size: 1.4rem; font-weight: 600; cursor: pointer; }
+    .key:active { background: #00a884; color: #0b141a; }
 
-    /* HOME / FRIENDS LIST SCREEN */
-    #homeScreen { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
-    .card { background: #202c33; padding: 16px; border-radius: 12px; display: flex; flex-direction: column; gap: 10px; }
-    .card h3 { font-size: 0.9rem; color: #00a884; }
+    /* CALL OVERLAY */
+    #callOverlay {
+      position: fixed; inset: 0; background: rgba(11, 20, 26, 0.96); z-index: 900;
+      display: none; flex-direction: column; align-items: center; justify-content: space-between; padding: 32px 16px;
+    }
+    .video-stack { position: relative; width: 100%; max-width: 440px; flex: 1; display: flex; align-items: center; justify-content: center; }
+    #remoteVideo { width: 100%; height: 100%; max-height: 65dvh; object-fit: cover; border-radius: 16px; background: #182229; }
+    #localVideo { position: absolute; bottom: 14px; right: 14px; width: 105px; height: 145px; object-fit: cover; border-radius: 12px; border: 2px solid #00a884; background: #000; }
+    .call-controls { display: flex; gap: 20px; align-items: center; }
+    .end-call-btn { width: 60px; height: 60px; border-radius: 50%; border: none; background: #ff4b4b; color: #fff; font-size: 1.4rem; cursor: pointer; }
+    .ans-call-btn { width: 60px; height: 60px; border-radius: 50%; border: none; background: #00a884; color: #0b141a; font-size: 1.4rem; cursor: pointer; }
+
+    /* TOPBAR */
+    .topbar { background: #202c33; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; z-index: 10; }
+    .brand-wrap { display: flex; align-items: center; gap: 10px; }
+    .logo-badge { width: 34px; height: 34px; border-radius: 9px; background: linear-gradient(135deg, #00a884, #005c4b); color: #fff; font-weight: 800; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; }
+    .topbar h2 { font-size: 1.02rem; }
+    .status { font-size: 0.72rem; color: #00a884; margin-top: 1px; }
+    .status.off { color: #8696a0; }
+    .small-btn { background: #2a3942; color: #e9edef; border: none; padding: 6px 9px; border-radius: 6px; font-size: 0.76rem; cursor: pointer; }
+
+    /* HOME SCREEN */
+    #homeScreen { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+    .card { background: #202c33; padding: 14px; border-radius: 12px; display: flex; flex-direction: column; gap: 10px; }
+    .card h3 { font-size: 0.88rem; color: #00a884; }
     .row { display: flex; gap: 8px; }
-    input { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #374248; background: #111b21; color: #fff; font-size: 0.92rem; outline: none; }
-    .btn { padding: 10px 16px; border: none; border-radius: 8px; background: #00a884; color: #0b141a; font-weight: 700; font-size: 0.9rem; cursor: pointer; white-space: nowrap; }
+    input[type="text"] { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #374248; background: #111b21; color: #fff; font-size: 0.92rem; outline: none; }
+    .btn { padding: 10px 14px; border: none; border-radius: 8px; background: #00a884; color: #0b141a; font-weight: 700; font-size: 0.88rem; cursor: pointer; white-space: nowrap; }
     .id-box { background: #111b21; padding: 10px 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; font-family: monospace; border: 1px dashed #374248; }
 
-    /* SAVED FRIENDS LIST */
-    .friend-item {
-      background: #182229;
-      padding: 12px;
-      border-radius: 10px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      cursor: pointer;
-      border: 1px solid #222e35;
-    }
-    .friend-item:active { background: #202c33; }
+    .friend-item { background: #182229; padding: 12px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; border: 1px solid #222e35; }
     .friend-meta { font-size: 0.75rem; color: #8696a0; margin-top: 3px; }
 
     /* CHAT SCREEN */
-    #chatScreen { display: none; flex: 1; flex-direction: column; overflow: hidden; }
-    .messages { flex: 1; padding: 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
-    .msg { max-width: 78%; padding: 8px 12px; border-radius: 10px; font-size: 0.92rem; line-height: 1.35; word-wrap: break-word; }
+    #chatScreen { display: none; flex: 1; flex-direction: column; overflow: hidden; background-size: cover; background-position: center; }
+    .messages { flex: 1; padding: 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+    .msg { max-width: 80%; padding: 8px 12px; border-radius: 10px; font-size: 0.92rem; line-height: 1.35; word-wrap: break-word; }
     .sent { align-self: flex-end; background: #005c4b; border-top-right-radius: 2px; }
     .received { align-self: flex-start; background: #202c33; border-top-left-radius: 2px; }
-    .msg-time { font-size: 0.65rem; color: rgba(255,255,255,0.6); text-align: right; margin-top: 3px; }
+    .msg a { color: #53bdeb; text-decoration: underline; word-break: break-all; }
+    .msg img, .msg video { max-width: 100%; border-radius: 8px; margin-top: 4px; display: block; max-height: 230px; }
+    .msg audio { width: 210px; height: 36px; margin-top: 4px; }
+    .msg iframe { width: 100%; height: 155px; border: none; border-radius: 8px; margin-top: 6px; }
+    .msg-footer { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 4px; }
+    .msg-time { font-size: 0.65rem; color: rgba(255,255,255,0.6); }
+    .react-bar { display: flex; gap: 4px; font-size: 0.8rem; cursor: pointer; opacity: 0.85; }
+    .reaction-badge { background: #111b21; border: 1px solid #374248; border-radius: 10px; padding: 1px 6px; font-size: 0.75rem; display: inline-block; margin-top: 4px; }
     .locked { border: 1px dashed #00a884; color: #00a884; font-weight: 600; cursor: pointer; }
     .burned { background: transparent; border: 1px solid #2a3942; color: #8696a0; font-style: italic; font-size: 0.8rem; }
 
+    /* EMOJI DRAWER */
+    .emoji-bar { background: #182229; padding: 6px 10px; display: none; gap: 10px; overflow-x: auto; border-top: 1px solid #222e35; font-size: 1.25rem; }
+    .emoji-bar span { cursor: pointer; }
+
     /* INPUT BAR */
-    .input-bar { background: #202c33; padding: 8px 10px; display: flex; gap: 6px; align-items: center; }
-    .input-bar input { border-radius: 20px; padding: 10px 14px; }
-    .mode-btn { padding: 8px 10px; border-radius: 16px; border: 1px solid #374248; background: #111b21; color: #8696a0; font-size: 0.75rem; font-weight: 700; cursor: pointer; }
+    .input-bar { background: #202c33; padding: 8px; display: flex; gap: 5px; align-items: center; }
+    .input-bar input[type="text"] { border-radius: 20px; padding: 9px 12px; }
+    .icon-btn { background: transparent; border: none; color: #8696a0; font-size: 1.15rem; cursor: pointer; padding: 4px 5px; }
+    .icon-btn.recording { color: #ff4b4b; transform: scale(1.2); }
+    .mode-btn { padding: 6px 7px; border-radius: 14px; border: 1px solid #374248; background: #111b21; color: #8696a0; font-size: 0.7rem; font-weight: 700; cursor: pointer; }
     .mode-btn.once { border-color: #ff4b4b; color: #ff4b4b; background: #2a181d; }
-    .send-btn { width: 42px; height: 42px; border-radius: 50%; border: none; background: #00a884; color: #0b141a; font-weight: bold; font-size: 1.1rem; cursor: pointer; flex-shrink: 0; }
+    .send-btn { width: 38px; height: 38px; border-radius: 50%; border: none; background: #00a884; color: #0b141a; font-weight: bold; font-size: 1rem; cursor: pointer; flex-shrink: 0; }
   </style>
 </head>
 <body>
 
-  <div class="topbar">
-    <div>
-      <h2 id="headerTitle">HarshChat</h2>
-      <div class="status off" id="statusText">Initializing...</div>
+  <!-- 4-DIGIT PIN LOCK SCREEN -->
+  <div id="pinOverlay">
+    <div class="logo-badge" style="width:54px; height:54px; font-size:1.8rem;">A</div>
+    <h3 id="pinTitle">Enter 4-Digit App PIN</h3>
+    <div class="pin-dots">
+      <div class="pin-dot" id="d0"></div>
+      <div class="pin-dot" id="d1"></div>
+      <div class="pin-dot" id="d2"></div>
+      <div class="pin-dot" id="d3"></div>
     </div>
-    <button class="small-btn" id="backBtn" style="display:none;" onclick="goHome()">&#8592; Chats</button>
+    <div class="keypad">
+      <button class="key" onclick="pressPin('1')">1</button>
+      <button class="key" onclick="pressPin('2')">2</button>
+      <button class="key" onclick="pressPin('3')">3</button>
+      <button class="key" onclick="pressPin('4')">4</button>
+      <button class="key" onclick="pressPin('5')">5</button>
+      <button class="key" onclick="pressPin('6')">6</button>
+      <button class="key" onclick="pressPin('7')">7</button>
+      <button class="key" onclick="pressPin('8')">8</button>
+      <button class="key" onclick="pressPin('9')">9</button>
+      <button class="key" style="font-size:0.9rem;" onclick="clearPin()">Clear</button>
+      <button class="key" onclick="pressPin('0')">0</button>
+      <button class="key" style="font-size:0.9rem;" onclick="resetForgottenPin()">Reset</button>
+    </div>
   </div>
 
-  <!-- HOME SCREEN: PROFILE + SAVED FRIENDS -->
+  <!-- LIVE CALL OVERLAY -->
+  <div id="callOverlay">
+    <div style="text-align:center;">
+      <h2 id="callPartnerName">Calling...</h2>
+      <p id="callStatus" style="color:#00a884; font-size:0.85rem; margin-top:4px;">Connecting...</p>
+    </div>
+    <div class="video-stack">
+      <video id="remoteVideo" autoplay playsinline></video>
+      <video id="localVideo" autoplay muted playsinline></video>
+    </div>
+    <div class="call-controls">
+      <button class="ans-call-btn" id="answerCallBtn" style="display:none;" onclick="acceptIncomingCall()">&#128222;</button>
+      <button class="end-call-btn" onclick="endCall()">&#128222;</button>
+    </div>
+  </div>
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="brand-wrap">
+      <div class="logo-badge">A</div>
+      <div>
+        <h2 id="headerTitle">A Messenger</h2>
+        <div class="status off" id="statusText">Initializing...</div>
+      </div>
+    </div>
+    <div style="display:flex; gap:5px; align-items:center;">
+      <button class="small-btn" id="audioCallBtn" style="display:none;" onclick="startCall(false)" title="Voice Call">&#128222;</button>
+      <button class="small-btn" id="videoCallBtn" style="display:none;" onclick="startCall(true)" title="Video Call">&#128249;</button>
+      <button class="small-btn" id="themeBtn" style="display:none;" onclick="cycleWallpaper()" title="Wallpaper">&#127912;</button>
+      <button class="small-btn" id="installBtn" style="display:none; background:#00a884; color:#0b141a; font-weight:700;">Install</button>
+      <button class="small-btn" id="backBtn" style="display:none;" onclick="goHome()">&#8592;</button>
+    </div>
+  </div>
+
+  <!-- HOME SCREEN -->
   <div id="homeScreen">
     <div class="card">
-      <h3>Your Saved Profile & Permanent Code</h3>
-      <div class="row">
-        <input type="text" id="myName" placeholder="Your name..." onchange="saveProfile()" />
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3>Your Profile & Permanent Code</h3>
+        <div style="display:flex; gap:5px;">
+          <button class="small-btn" onclick="requestNotifPermission()" id="notifBtn">&#128276; Alerts</button>
+          <button class="small-btn" onclick="setupPinLock()" id="pinSetBtn">&#128274; PIN</button>
+        </div>
       </div>
+      <input type="text" id="myName" placeholder="Your name..." onchange="saveProfile()" />
       <div class="id-box">
         <span id="myPeerId">Loading...</span>
         <button class="small-btn" onclick="copyId()">Copy Code</button>
@@ -94,72 +183,290 @@
       </div>
       <div id="friendsList" style="display:flex; flex-direction:column; gap:8px;"></div>
     </div>
+    <input type="file" id="wallInput" accept="image/*" style="display:none;" onchange="setPhotoWallpaper(event)" />
   </div>
 
   <!-- CHAT SCREEN -->
   <div id="chatScreen">
     <div class="messages" id="messagesBox"></div>
+    <div class="emoji-bar" id="emojiBar">
+      <span onclick="addEmoji('😂')">😂</span>
+      <span onclick="addEmoji('❤️')">❤️</span>
+      <span onclick="addEmoji('🔥')">🔥</span>
+      <span onclick="addEmoji('👍')">👍</span>
+      <span onclick="addEmoji('😎')">😎</span>
+      <span onclick="addEmoji('🎉')">🎉</span>
+      <span onclick="addEmoji('👀')">👀</span>
+      <span onclick="addEmoji('🙏')">🙏</span>
+    </div>
     <div class="input-bar">
-      <button class="mode-btn" id="onceToggle" onclick="toggleOnceMode()">Normal</button>
-      <input type="text" id="msgInput" placeholder="Type a message..." onkeypress="if(event.key==='Enter') sendMessage()" />
+      <button class="icon-btn" onclick="toggleEmoji()">😊</button>
+      <button class="icon-btn" onclick="document.getElementById('mediaInput').click()">📎</button>
+      <input type="file" id="mediaInput" accept="image/*,video/*" style="display:none;" onchange="handleMediaSelect(event)" />
+      <button class="icon-btn" id="micBtn" onmousedown="startRecording()" onmouseup="stopRecording()" ontouchstart="startRecording(event)" ontouchend="stopRecording(event)" title="Hold for Voice Note">🎤</button>
+      <button class="mode-btn" id="onceToggle" onclick="toggleOnceMode()">1x</button>
+      <input type="text" id="msgInput" placeholder="Message or link..." oninput="notifyTyping()" onkeypress="if(event.key==='Enter') sendMessage()" />
       <button class="send-btn" onclick="sendMessage()">&#10148;</button>
     </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script>
-    // LOAD SAVED STORAGE
-    let myId = localStorage.getItem('hc_myId');
-    if (!myId) {
-      myId = 'hc-' + Math.random().toString(36).substring(2, 7);
-      localStorage.setItem('hc_myId', myId);
+    let appIconDataUrl = '';
+
+    // 1. PWA "A" LOGO & MANIFEST
+    (function setupAppIconAndManifest() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512; canvas.height = 512;
+      const ctx = canvas.getContext('2d');
+      const grad = ctx.createLinearGradient(0, 0, 512, 512);
+      grad.addColorStop(0, '#00a884'); grad.addColorStop(1, '#005c4b');
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.roundRect(0, 0, 512, 512, 110); ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 310px system-ui, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('A', 256, 272);
+
+      appIconDataUrl = canvas.toDataURL('image/png');
+      document.getElementById('appIcon').href = appIconDataUrl;
+      document.getElementById('appleIcon').href = appIconDataUrl;
+
+      const manifest = {
+        name: "A Messenger", short_name: "A", start_url: location.href,
+        display: "standalone", background_color: "#0b141a", theme_color: "#202c33",
+        icons: [{ src: appIconDataUrl, sizes: "512x512", type: "image/png", purpose: "any maskable" }]
+      };
+      document.getElementById('manifestLink').href = URL.createObjectURL(new Blob([JSON.stringify(manifest)], { type: 'application/json' }));
+    })();
+
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault(); deferredPrompt = e;
+      const btn = document.getElementById('installBtn');
+      btn.style.display = 'block';
+      btn.onclick = async () => { deferredPrompt.prompt(); await deferredPrompt.userChoice; btn.style.display = 'none'; };
+    });
+
+    // 2. PIN LOCK SYSTEM
+    let savedPin = localStorage.getItem('hc_pin') || '';
+    let enteredPin = '';
+    if (savedPin) {
+      document.getElementById('pinOverlay').style.display = 'flex';
+      document.getElementById('pinSetBtn').textContent = '🔒 PIN ON';
     }
+    function pressPin(num) {
+      if (enteredPin.length >= 4) return;
+      enteredPin += num;
+      updatePinDots();
+      if (enteredPin.length === 4) {
+        if (enteredPin === savedPin) {
+          document.getElementById('pinOverlay').style.display = 'none';
+          enteredPin = ''; updatePinDots();
+        } else {
+          alert('Wrong PIN!');
+          enteredPin = ''; updatePinDots();
+        }
+      }
+    }
+    function clearPin() { enteredPin = ''; updatePinDots(); }
+    function updatePinDots() {
+      for (let i = 0; i < 4; i++) document.getElementById('d' + i).classList.toggle('filled', i < enteredPin.length);
+    }
+    function setupPinLock() {
+      const newPin = prompt(savedPin ? 'Enter new 4-digit PIN (or leave empty to remove PIN):' : 'Set a 4-digit PIN to lock your app:');
+      if (newPin === null) return;
+      if (newPin === '') {
+        localStorage.removeItem('hc_pin'); savedPin = '';
+        document.getElementById('pinSetBtn').textContent = '🔒 PIN';
+        alert('App PIN removed.');
+      } else if (/^\d{4}$/.test(newPin)) {
+        localStorage.setItem('hc_pin', newPin); savedPin = newPin;
+        document.getElementById('pinSetBtn').textContent = '🔒 PIN ON';
+        alert('4-digit PIN saved!');
+      } else {
+        alert('Please enter exactly 4 numbers.');
+      }
+    }
+    function resetForgottenPin() {
+      if (confirm('Reset forgotten PIN? (This will clear saved chats for security)')) {
+        localStorage.clear(); location.reload();
+      }
+    }
+
+    // 3. NOTIFICATIONS
+    function requestNotifPermission() {
+      if (!('Notification' in window)) return alert('Notifications not supported on this browser.');
+      Notification.requestPermission().then(perm => {
+        if (perm === 'granted') {
+          document.getElementById('notifBtn').textContent = '🔔 ON';
+          new Notification('A Messenger', { body: 'Background alerts enabled!', icon: appIconDataUrl });
+        }
+      });
+    }
+    function triggerAlert(sender, bodyText) {
+      if (navigator.vibrate) navigator.vibrate([120, 60, 120]);
+      if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+        new Notification(sender, { body: bodyText, icon: appIconDataUrl });
+      }
+    }
+
+    // 4. WALLPAPER THEMES
+    const wallpapers = ['#0b141a', '#0d1b2a', '#071e1a', 'photo'];
+    let wallIndex = parseInt(localStorage.getItem('hc_wallIdx') || '0');
+    function applyWallpaper() {
+      const chatEl = document.getElementById('chatScreen');
+      const customImg = localStorage.getItem('hc_wallImg');
+      if (wallpapers[wallIndex] === 'photo' && customImg) {
+        chatEl.style.backgroundImage = `url(${customImg})`;
+      } else {
+        chatEl.style.backgroundImage = 'none';
+        chatEl.style.backgroundColor = wallpapers[wallIndex] === 'photo' ? '#0b141a' : wallpapers[wallIndex];
+      }
+    }
+    function cycleWallpaper() {
+      wallIndex = (wallIndex + 1) % wallpapers.length;
+      localStorage.setItem('hc_wallIdx', wallIndex);
+      if (wallpapers[wallIndex] === 'photo') {
+        document.getElementById('wallInput').click();
+      } else {
+        applyWallpaper();
+      }
+    }
+    function setPhotoWallpaper(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        localStorage.setItem('hc_wallImg', ev.target.result);
+        applyWallpaper();
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // 5. STORAGE & PEERJS MESSENGER
+    let myId = localStorage.getItem('hc_myId') || ('hc-' + Math.random().toString(36).substring(2, 7));
+    localStorage.setItem('hc_myId', myId);
     let myName = localStorage.getItem('hc_myName') || 'Harsh';
-    let friends = JSON.parse(localStorage.getItem('hc_friends') || '{}'); // { peerId: { name, lastMsg } }
-    let chats = JSON.parse(localStorage.getItem('hc_chats') || '{}');     // { peerId: [ { side, text, time, burned } ] }
+    let friends = JSON.parse(localStorage.getItem('hc_friends') || '{}');
+    let chats = JSON.parse(localStorage.getItem('hc_chats') || '{}');
 
     document.getElementById('myName').value = myName;
     document.getElementById('myPeerId').textContent = myId;
+    if ('Notification' in window && Notification.permission === 'granted') document.getElementById('notifBtn').textContent = '🔔 ON';
 
-    let peer = null;
-    let activeConn = null;
-    let activeFriendId = null;
-    let isOnceMode = false;
+    let peer = null, activeConn = null, activeFriendId = null, isOnceMode = false, typingTimeout = null;
+    let currentCall = null, incomingCallObj = null, localStream = null;
 
     window.addEventListener('load', () => {
       renderFriendsList();
+      applyWallpaper();
       peer = new Peer(myId);
-
-      peer.on('open', () => {
-        setStatus('Ready • Share your code', true);
+      peer.on('open', () => setStatus('Ready • Share your code', true));
+      peer.on('connection', (incoming) => setupConnection(incoming, true));
+      peer.on('call', (call) => {
+        incomingCallObj = call;
+        const callerName = (friends[call.peer] && friends[call.peer].name) || call.peer;
+        document.getElementById('callPartnerName').textContent = callerName;
+        document.getElementById('callStatus').textContent = 'Incoming Call...';
+        document.getElementById('answerCallBtn').style.display = 'inline-block';
+        document.getElementById('callOverlay').style.display = 'flex';
+        triggerAlert(callerName, '📞 Incoming Call...');
       });
-
-      peer.on('connection', (incoming) => {
-        setupConnection(incoming, true);
-      });
-
-      peer.on('error', (err) => {
-        setStatus('Offline / Friend not online (' + err.type + ')', false);
-      });
+      peer.on('error', (err) => setStatus('Offline (' + err.type + ')', false));
     });
+
+    // LIVE AUDIO / VIDEO CALLING
+    async function startCall(withVideo) {
+      if (!activeFriendId) return;
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: withVideo });
+        document.getElementById('localVideo').srcObject = localStream;
+        document.getElementById('callPartnerName').textContent = friends[activeFriendId].name;
+        document.getElementById('callStatus').textContent = withVideo ? 'Video Calling...' : 'Voice Calling...';
+        document.getElementById('answerCallBtn').style.display = 'none';
+        document.getElementById('callOverlay').style.display = 'flex';
+
+        const call = peer.call(activeFriendId, localStream);
+        bindCallEvents(call);
+      } catch (e) {
+        alert('Camera/Mic permission denied.');
+      }
+    }
+    async function acceptIncomingCall() {
+      if (!incomingCallObj) return;
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        document.getElementById('localVideo').srcObject = localStream;
+        document.getElementById('answerCallBtn').style.display = 'none';
+        incomingCallObj.answer(localStream);
+        bindCallEvents(incomingCallObj);
+      } catch (e) {
+        alert('Camera/Mic permission required to answer.');
+      }
+    }
+    function bindCallEvents(call) {
+      currentCall = call;
+      call.on('stream', (remoteStream) => {
+        document.getElementById('remoteVideo').srcObject = remoteStream;
+        document.getElementById('callStatus').textContent = 'Connected';
+      });
+      call.on('close', endCall);
+    }
+    function endCall() {
+      if (currentCall) currentCall.close();
+      if (incomingCallObj) incomingCallObj.close();
+      if (localStream) localStream.getTracks().forEach(t => t.stop());
+      currentCall = null; incomingCallObj = null; localStream = null;
+      document.getElementById('callOverlay').style.display = 'none';
+    }
+
+    // VOICE NOTES (HOLD MIC)
+    let mediaRecorder = null, audioChunks = [];
+    async function startRecording(e) {
+      if (e) e.preventDefault();
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+        mediaRecorder.ondataavailable = ev => audioChunks.push(ev.data);
+        mediaRecorder.onstop = () => {
+          stream.getTracks().forEach(t => t.stop());
+          const blob = new Blob(audioChunks, { type: 'audio/webm' });
+          const reader = new FileReader();
+          reader.onload = ev => dispatchMessage('audio', '', ev.target.result);
+          reader.readAsDataURL(blob);
+        };
+        mediaRecorder.start();
+        document.getElementById('micBtn').classList.add('recording');
+      } catch (err) {
+        alert('Allow microphone permission to send voice notes.');
+      }
+    }
+    function stopRecording(e) {
+      if (e) e.preventDefault();
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+        document.getElementById('micBtn').classList.remove('recording');
+      }
+    }
 
     function saveProfile() {
       myName = document.getElementById('myName').value.trim() || 'Harsh';
       localStorage.setItem('hc_myName', myName);
     }
-
     function saveStorage() {
-      localStorage.setItem('hc_friends', JSON.stringify(friends));
-      localStorage.setItem('hc_chats', JSON.stringify(chats));
+      try {
+        localStorage.setItem('hc_friends', JSON.stringify(friends));
+        localStorage.setItem('hc_chats', JSON.stringify(chats));
+      } catch (e) { alert('Storage full! Clear old chats.'); }
     }
-
     function connectByInput() {
       const fid = document.getElementById('friendIdInput').value.trim();
       if (!fid) return alert("Enter friend's code!");
       document.getElementById('friendIdInput').value = '';
       openFriendChat(fid, true);
     }
-
     function openFriendChat(fid, shouldConnect) {
       activeFriendId = fid;
       if (!friends[fid]) friends[fid] = { name: fid, lastMsg: 'Tap to chat' };
@@ -168,116 +475,137 @@
 
       document.getElementById('homeScreen').style.display = 'none';
       document.getElementById('chatScreen').style.display = 'flex';
-      document.getElementById('backBtn').style.display = 'block';
+      ['backBtn', 'audioCallBtn', 'videoCallBtn', 'themeBtn'].forEach(id => document.getElementById(id).style.display = 'block');
       document.getElementById('headerTitle').textContent = friends[fid].name;
       renderMessages(fid);
 
       if (shouldConnect && (!activeConn || activeConn.peer !== fid || !activeConn.open)) {
-        setStatus('Connecting to ' + friends[fid].name + '...', false);
-        const conn = peer.connect(fid);
-        setupConnection(conn, true);
+        setStatus('Connecting...', false);
+        setupConnection(peer.connect(fid), true);
       }
     }
-
     function setupConnection(conn, switchToChat) {
       activeConn = conn;
       const fid = conn.peer;
-
       conn.on('open', () => {
         if (!friends[fid]) friends[fid] = { name: fid, lastMsg: 'Connected' };
-        saveStorage();
-        renderFriendsList();
-
+        saveStorage(); renderFriendsList();
         if (switchToChat) openFriendChat(fid, false);
         if (activeFriendId === fid) setStatus('Online • Connected', true);
-
         conn.send({ type: 'intro', name: myName });
       });
-
       conn.on('data', (data) => {
         if (data.type === 'intro') {
           friends[fid].name = data.name;
-          friends[fid].lastMsg = 'Online';
-          saveStorage();
-          renderFriendsList();
+          saveStorage(); renderFriendsList();
           if (activeFriendId === fid) document.getElementById('headerTitle').textContent = data.name;
+        } else if (data.type === 'typing' && activeFriendId === fid) {
+          setStatus('typing...', true);
+          clearTimeout(typingTimeout);
+          typingTimeout = setTimeout(() => setStatus('Online • Connected', true), 1500);
+        } else if (data.type === 'react') {
+          const msg = (chats[fid] || []).find(m => m.id === data.msgId);
+          if (msg) { msg.reaction = data.emoji; saveStorage(); if (activeFriendId === fid) renderMessages(fid); }
         } else if (data.type === 'msg') {
+          playPop();
+          const preview = data.once ? '🔒 1-time message' : (data.kind === 'text' ? data.text : '📎 Sent ' + data.kind);
+          triggerAlert(friends[fid].name, preview);
           if (!chats[fid]) chats[fid] = [];
           chats[fid].push({
-            id: data.id,
-            side: 'received',
-            text: data.text,
-            time: data.time,
-            once: data.once || false,
-            burned: false
+            id: data.id, side: 'received', kind: data.kind || 'text',
+            text: data.text || '', media: data.media || '', time: data.time,
+            once: data.once || false, burned: false, reaction: ''
           });
-          friends[fid].lastMsg = data.once ? '🔒 1-time message' : data.text;
-          saveStorage();
-          renderFriendsList();
+          friends[fid].lastMsg = preview;
+          saveStorage(); renderFriendsList();
           if (activeFriendId === fid) renderMessages(fid);
         }
       });
-
-      conn.on('close', () => {
-        if (activeFriendId === fid) setStatus('Friend offline (Viewing saved chat)', false);
-      });
+      conn.on('close', () => { if (activeFriendId === fid) setStatus('Offline (Saved chat)', false); });
     }
 
+    function notifyTyping() { if (activeConn && activeConn.open) activeConn.send({ type: 'typing' }); }
+    function toggleEmoji() {
+      const bar = document.getElementById('emojiBar');
+      bar.style.display = bar.style.display === 'flex' ? 'none' : 'flex';
+    }
+    function addEmoji(e) { const inp = document.getElementById('msgInput'); inp.value += e; inp.focus(); }
     function toggleOnceMode() {
       isOnceMode = !isOnceMode;
       const btn = document.getElementById('onceToggle');
-      btn.textContent = isOnceMode ? '1x Burn' : 'Normal';
+      btn.textContent = isOnceMode ? '1x ON' : '1x';
       btn.classList.toggle('once', isOnceMode);
     }
-
     function sendMessage() {
       const input = document.getElementById('msgInput');
       const text = input.value.trim();
       if (!text || !activeFriendId) return;
-
+      dispatchMessage('text', text, '');
+      input.value = '';
+    }
+    function handleMediaSelect(e) {
+      const file = e.target.files[0];
+      if (!file || !activeFriendId) return;
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const scale = Math.min(1, 650 / img.width);
+            canvas.width = img.width * scale; canvas.height = img.height * scale;
+            canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+            dispatchMessage('image', '', canvas.toDataURL('image/jpeg', 0.72));
+          };
+          img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+      } else if (file.type.startsWith('video/')) {
+        if (file.size > 6 * 1024 * 1024) return alert('Pick a short video under 6 MB.');
+        const reader = new FileReader();
+        reader.onload = (ev) => dispatchMessage('video', '', ev.target.result);
+        reader.readAsDataURL(file);
+      }
+      e.target.value = '';
+    }
+    function dispatchMessage(kind, text, media) {
       const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       const msgId = Date.now().toString(36);
-
       if (activeConn && activeConn.open && activeConn.peer === activeFriendId) {
-        activeConn.send({ type: 'msg', id: msgId, text, time, once: isOnceMode });
+        activeConn.send({ type: 'msg', id: msgId, kind, text, media, time, once: isOnceMode });
       } else {
-        alert('Friend is currently offline—message saved locally, reconnect when they open the app.');
+        alert('Friend is offline—saved locally.');
       }
-
       if (!chats[activeFriendId]) chats[activeFriendId] = [];
       chats[activeFriendId].push({
-        id: msgId,
-        side: 'sent',
-        text: isOnceMode ? '🔒 Sent 1-time message' : text,
-        time,
-        once: false,
-        burned: false
+        id: msgId, side: 'sent', kind: isOnceMode ? 'text' : kind,
+        text: isOnceMode ? '🔒 Sent 1-time ' + kind : text,
+        media: isOnceMode ? '' : media, time, once: false, burned: false, reaction: ''
       });
-      friends[activeFriendId].lastMsg = isOnceMode ? '🔒 Sent 1-time message' : text;
-      saveStorage();
-
-      input.value = '';
-      renderMessages(activeFriendId);
+      friends[activeFriendId].lastMsg = isOnceMode ? '🔒 Sent 1-time' : (kind === 'text' ? text : '📎 Sent ' + kind);
+      saveStorage(); renderMessages(activeFriendId);
     }
-
+    function sendReaction(msgId, emoji) {
+      const msg = (chats[activeFriendId] || []).find(m => m.id === msgId);
+      if (msg) {
+        msg.reaction = emoji; saveStorage(); renderMessages(activeFriendId);
+        if (activeConn && activeConn.open) activeConn.send({ type: 'react', msgId, emoji });
+      }
+    }
     function renderMessages(fid) {
       const box = document.getElementById('messagesBox');
       box.innerHTML = '';
-      const list = chats[fid] || [];
-
-      list.forEach((m, index) => {
+      (chats[fid] || []).forEach((m, index) => {
         const div = document.createElement('div');
         if (m.once && !m.burned) {
           div.className = 'msg received locked';
-          div.innerHTML = `&#128065; <u>Tap to view 1-time message</u>`;
+          div.innerHTML = `&#128065; <u>Tap to view 1-time ${m.kind}</u>`;
           div.onclick = () => {
             div.className = 'msg received';
-            div.innerHTML = `<div>${esc(m.text)}</div><div class="msg-time">Deleting in 5s...</div>`;
+            div.innerHTML = `${buildMediaOrText(m)}<div class="msg-time">Deleting in 5s...</div>`;
             setTimeout(() => {
-              chats[fid][index].burned = true;
-              chats[fid][index].text = '';
-              saveStorage();
-              renderMessages(fid);
+              chats[fid][index].burned = true; chats[fid][index].text = ''; chats[fid][index].media = '';
+              saveStorage(); renderMessages(fid);
             }, 5000);
           };
         } else if (m.burned) {
@@ -285,13 +613,31 @@
           div.innerHTML = '&#128293; 1-time message deleted';
         } else {
           div.className = `msg ${m.side}`;
-          div.innerHTML = `<div>${esc(m.text)}</div><div class="msg-time">${m.time}</div>`;
+          div.innerHTML = `
+            ${buildMediaOrText(m)}
+            ${m.reaction ? `<div class="reaction-badge">${m.reaction}</div>` : ''}
+            <div class="msg-footer">
+              <div class="react-bar">
+                <span onclick="sendReaction('${m.id}','❤️')">❤️</span>
+                <span onclick="sendReaction('${m.id}','😂')">😂</span>
+                <span onclick="sendReaction('${m.id}','🔥')">🔥</span>
+              </div>
+              <div class="msg-time">${m.time}</div>
+            </div>
+          `;
         }
         box.appendChild(div);
       });
       box.scrollTop = box.scrollHeight;
     }
-
+    function buildMediaOrText(m) {
+      if (m.kind === 'image') return `<img src="${m.media}" alt="photo" />`;
+      if (m.kind === 'video') return `<video src="${m.media}" controls playsinline></video>`;
+      if (m.kind === 'audio') return `<audio src="${m.media}" controls></audio>`;
+      const linked = esc(m.text).replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+      const ytMatch = m.text.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+      return `<div>${linked}</div>${ytMatch ? `<iframe src="https://www.youtube.com/embed/${ytMatch[1]}" allowfullscreen></iframe>` : ''}`;
+    }
     function renderFriendsList() {
       const container = document.getElementById('friendsList');
       const ids = Object.keys(friends);
@@ -309,38 +655,37 @@
         </div>
       `).join('');
     }
-
     function goHome() {
       activeFriendId = null;
       document.getElementById('chatScreen').style.display = 'none';
       document.getElementById('homeScreen').style.display = 'flex';
-      document.getElementById('backBtn').style.display = 'none';
-      document.getElementById('headerTitle').textContent = 'HarshChat';
+      ['backBtn', 'audioCallBtn', 'videoCallBtn', 'themeBtn'].forEach(id => document.getElementById(id).style.display = 'none');
+      document.getElementById('headerTitle').textContent = 'A Messenger';
       setStatus('Ready • Share your code', true);
       renderFriendsList();
     }
-
     function setStatus(msg, online) {
       const el = document.getElementById('statusText');
-      el.textContent = msg;
-      el.classList.toggle('off', !online);
+      el.textContent = msg; el.classList.toggle('off', !online);
     }
-
-    function copyId() {
-      navigator.clipboard.writeText(myId);
-      alert('Copied permanent code: ' + myId);
-    }
-
+    function copyId() { navigator.clipboard.writeText(myId); alert('Copied code: ' + myId); }
     function clearAllData() {
       if (confirm('Delete all saved friends and chat history?')) {
-        localStorage.removeItem('hc_friends');
-        localStorage.removeItem('hc_chats');
-        friends = {};
-        chats = {};
-        renderFriendsList();
+        localStorage.removeItem('hc_friends'); localStorage.removeItem('hc_chats');
+        friends = {}; chats = {}; renderFriendsList();
       }
     }
-
+    function playPop() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator(), gain = ctx.createGain();
+        osc.frequency.setValueAtTime(580, ctx.currentTime);
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(); osc.stop(ctx.currentTime + 0.12);
+      } catch (e) {}
+    }
     function esc(s) {
       return String(s).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
     }
